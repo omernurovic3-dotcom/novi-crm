@@ -1,0 +1,304 @@
+index.html
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+<meta charset="UTF-8">
+<title>GAZIPLAST CRM PRO</title>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<style>
+body { font-family: Arial; margin:0; background:#111; color:#eee; }
+input, select, button { padding:6px; margin:3px 0; width:100%; border-radius:5px; border:none; }
+table { width:100%; border-collapse: collapse; margin-top:10px; }
+td, th { border:1px solid #333; padding:5px; text-align:center; }
+canvas { background:#000; border-radius:6px; }
+button { cursor:pointer; background:#00aa66; color:#fff; }
+h2 { color:#00ff88; }
+.panel { background:#1a1a1a; padding:10px; border-radius:8px; margin-bottom:20px; }
+.layout { display:flex; gap:20px; padding:10px; }
+.left { width:30%; background:#1a1a1a; padding:10px; border-radius:10px; height:95vh; overflow:auto; }
+.right { width:70%; }
+</style>
+</head>
+
+<body>
+
+<div class="layout">
+
+<div class="left">
+<h3>Ponude</h3>
+<button onclick="novaPonuda()">+ Nova</button>
+</div>
+
+<div class="right">
+
+<h2>GAZIPLAST CRM PRO</h2>
+
+<button onclick="toggleCenovnik()">⚙️ Cenovnik</button>
+
+<div id="cenovnik" class="panel" style="display:none;">
+
+<b>PROZORI</b>
+<input id="c_prozor82" value="120">
+<input id="c_prozor92" value="150">
+<input id="c_staklo3" value="20">
+
+<b>VRATA</b>
+<input id="c_vrata_ulazna" value="300">
+<input id="c_vrata_skriveno" value="250">
+
+<b>ROLETNE</b>
+<input id="c_roletna_spoljna" value="45">
+<input id="c_roletna_unutra" value="35">
+
+<b>KOMARNIK</b>
+<input id="c_komarnik" value="25">
+
+<b>KLIZNI</b>
+<input id="c_psk" value="200">
+<input id="c_hst" value="350">
+
+<b>BOJE</b>
+<input id="c_antracit" value="30">
+<input id="c_hrast" value="40">
+<input id="c_mix" value="50">
+
+<b>T PREČKA</b>
+<input id="c_tprecka" value="10">
+
+</div>
+
+<input id="klijent" placeholder="Klijent" oninput="izracunaj()">
+<input id="telefon" placeholder="Telefon" oninput="izracunaj()">
+<input id="popust" value="0" placeholder="Popust %" oninput="izracunaj()">
+
+<button onclick="dodajRed('Prozor')">+ Prozor</button>
+<button onclick="dodajRed('Vrata')">+ Vrata</button>
+<button onclick="dodajRed('Roletna')">+ Roletna</button>
+<button onclick="dodajRed('Komarnik')">+ Komarnik</button>
+<button onclick="dodajRed('Klizni')">+ Klizni</button>
+
+<table id="tabela">
+<tr>
+<th>Tip</th><th>Š</th><th>V</th><th>Opcije</th><th>Boja</th><th>Prikaz</th><th>X</th>
+</tr>
+</table>
+
+<h2 id="rezultat">0 €</h2>
+<button onclick="napraviPDF()">📄 PDF</button>
+
+</div>
+</div>
+
+<script>
+
+function toggleCenovnik(){
+let c=document.getElementById("cenovnik");
+c.style.display = c.style.display=="none"?"block":"none";
+}
+
+let counter=0;
+
+// DODAVANJE
+function dodajRed(tip){
+
+let t=document.getElementById("tabela");
+let row=t.insertRow();
+let id="c"+counter++;
+
+let opcije="";
+if(tip=="Prozor"){
+opcije=`
+<select class="profil"><option value="82">82</option><option value="92">92</option></select>
+<select class="staklo"><option value="2">2</option><option value="3">3</option></select>
+<select class="otv"><option value="levo">levo</option><option value="desno">desno</option></select>
+<select class="tprecka"><option value="ne">bez</option><option value="da">sa</option></select>`;
+}
+
+if(tip=="Vrata"){
+opcije=`
+<select class="vrata"><option value="ulazna">ulazna</option><option value="skriveno">skriveno</option></select>
+<select class="otv"><option value="levo">levo</option><option value="desno">desno</option></select>
+<select class="tprecka"><option value="ne">bez</option><option value="da">sa</option></select>`;
+}
+
+if(tip=="Roletna"){
+opcije=`<select class="roletna"><option value="spoljna">spoljna</option><option value="unutra">unutra</option></select>`;
+}
+
+if(tip=="Klizni"){
+opcije=`
+<select class="klizni"><option value="psk">psk</option><option value="hst">hst</option></select>
+<select class="staklo"><option value="2">2</option><option value="3">3</option></select>`;
+}
+
+let boja=(tip!="Komarnik")?`
+<select class="boja">
+<option value="bela">bela</option>
+<option value="antracit">antracit</option>
+<option value="hrast">hrast</option>
+<option value="mix">mix</option>
+</select>`:"-";
+
+row.innerHTML=`
+<td>${tip}</td>
+<td><input class="s" oninput="update('${id}',this)"></td>
+<td><input class="v" oninput="update('${id}',this)"></td>
+<td>${opcije}</td>
+<td>${boja}</td>
+<td><canvas id="${id}" width="140" height="90"></canvas></td>
+<td><button onclick="this.parentElement.parentElement.remove(); izracunaj();">X</button></td>
+`;
+}
+
+// CRTANJE
+function crtaj(id,row){
+
+let s=row.querySelector(".s").value;
+let v=row.querySelector(".v").value;
+let otv=row.querySelector(".otv")?.value;
+let tp=row.querySelector(".tprecka")?.value;
+
+let c=document.getElementById(id);
+let ctx=c.getContext("2d");
+
+ctx.clearRect(0,0,140,90);
+if(!s||!v) return;
+
+ctx.strokeStyle="#00ff88";
+ctx.strokeRect(20,10,100,70);
+
+if(tp=="da"){
+ctx.beginPath();
+ctx.moveTo(70,10);
+ctx.lineTo(70,80);
+ctx.stroke();
+}
+
+if(otv){
+ctx.beginPath();
+if(otv=="levo"){
+ctx.moveTo(20,10); ctx.lineTo(70,45); ctx.lineTo(20,80);
+}else{
+ctx.moveTo(120,10); ctx.lineTo(70,45); ctx.lineTo(120,80);
+}
+ctx.stroke();
+}
+}
+
+// UPDATE
+function update(id,el){
+let row=el.closest("tr");
+crtaj(id,row);
+izracunaj();
+}
+
+// RACUN
+function izracunaj(){
+
+let rows=document.querySelectorAll("#tabela tr:not(:first-child)");
+let total=0;
+
+rows.forEach(r=>{
+
+let tip=r.cells[0].innerText;
+let s=r.querySelector(".s").value;
+let v=r.querySelector(".v").value;
+
+if(!s||!v) return;
+
+let m=(s/100)*(v/100);
+let cena=0;
+
+// PROZOR
+if(tip=="Prozor"){
+let profil=r.querySelector(".profil").value;
+let st=r.querySelector(".staklo").value;
+let tp=r.querySelector(".tprecka").value;
+let boja=r.querySelector(".boja").value;
+
+let base=(profil=="82"?c_prozor82.value:c_prozor92.value);
+let staklo=(st=="3"?c_staklo3.value:0);
+let t=(tp=="da"?c_tprecka.value:0);
+let bojaC=(boja=="bela"?0:boja=="antracit"?c_antracit.value:boja=="hrast"?c_hrast.value:c_mix.value);
+
+cena=(+base + +staklo + +t + +bojaC)*m;
+}
+
+// VRATA
+if(tip=="Vrata"){
+let vr=r.querySelector(".vrata").value;
+let tp=r.querySelector(".tprecka").value;
+let boja=r.querySelector(".boja").value;
+
+let base=(vr=="ulazna"?c_vrata_ulazna.value:c_vrata_skriveno.value);
+let t=(tp=="da"?c_tprecka.value:0);
+let bojaC=(boja=="bela"?0:boja=="antracit"?c_antracit.value:boja=="hrast"?c_hrast.value:c_mix.value);
+
+cena=(+base + +t + +bojaC)*m;
+}
+
+// ROLETNA
+if(tip=="Roletna"){
+let vr=r.querySelector(".roletna").value;
+let base=(vr=="spoljna"?c_roletna_spoljna.value:c_roletna_unutra.value);
+cena=base*m;
+}
+
+// KOMARNIK
+if(tip=="Komarnik"){
+cena=c_komarnik.value*m;
+}
+
+// KLIZNI
+if(tip=="Klizni"){
+let vr=r.querySelector(".klizni").value;
+let st=r.querySelector(".staklo").value;
+let base=(vr=="psk"?c_psk.value:c_hst.value);
+let staklo=(st=="3"?c_staklo3.value:0);
+cena=(+base + +staklo)*m;
+}
+
+total+=cena;
+
+});
+
+let pop=parseFloat(popust.value)||0;
+total-=total*(pop/100);
+
+rezultat.innerText=total.toFixed(2)+" €";
+}
+
+// PDF
+function napraviPDF(){
+const { jsPDF } = window.jspdf;
+let doc=new jsPDF();
+let y=10;
+
+doc.text("GAZIPLAST PONUDA",10,y); y+=10;
+
+document.querySelectorAll("#tabela tr:not(:first-child)").forEach((r,i)=>{
+
+let s=r.querySelector(".s").value;
+let v=r.querySelector(".v").value;
+
+if(!s||!v) return;
+
+doc.text(`${i+1}. ${r.cells[0].innerText} ${s}x${v}`,10,y);
+y+=5;
+
+let img=r.querySelector("canvas").toDataURL();
+doc.addImage(img,"PNG",10,y,60,40);
+
+y+=45;
+});
+
+doc.text("UKUPNO: "+rezultat.innerText,10,y);
+
+doc.save("ponuda.pdf");
+}
+
+</script>
+</body>
+</html>
